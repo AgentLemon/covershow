@@ -9,5 +9,8 @@ defmodule Covershow.Change do
             old_start_line: 0,
             old_amount: 0,
             old_filename: nil,
-            new_filename: nil
+            new_filename: nil,
+            lines_added: 0,
+            lines_covered: 0,
+            lines_missed: 0
 end

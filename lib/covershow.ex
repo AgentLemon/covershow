@@ -21,7 +21,17 @@ defmodule Covershow do
     |> Enum.reduce([], fn change, acc ->
       with [coverage_record] <- coverage[change.new_filename] do
         new_lines = change.lines |> assign_coverage(coverage_record)
-        new_change = change |> Map.put(:lines, new_lines)
+        {added, covered, missed} = get_stats(new_lines)
+
+        new_change =
+          change
+          |> Map.merge(%{
+            lines: new_lines,
+            lines_added: added,
+            lines_covered: covered,
+            lines_missed: missed
+          })
+
         [new_change | acc]
       else
         _any -> acc
@@ -45,6 +55,24 @@ defmodule Covershow do
       else
         coverage = coverage_record |> Map.get("coverage", []) |> Enum.at(line.new_number - 1)
         line |> Map.put(:coverage, coverage)
+      end
+    end)
+  end
+
+  defp get_stats(lines) do
+    lines
+    |> Enum.reduce({0, 0, 0}, fn line, {added, covered, missed} ->
+      new_added =
+        if line.kind == :add do
+          added + 1
+        else
+          added
+        end
+
+      case line.coverage do
+        nil -> {new_added, covered, missed}
+        0 -> {new_added, covered, missed + 1}
+        _ -> {new_added, covered + 1, missed}
       end
     end)
   end

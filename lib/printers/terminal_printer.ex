@@ -21,6 +21,7 @@ defmodule Covershow.Printers.TerminalPrinter do
     change_list
     |> Enum.each(fn change ->
       print_filename(change.new_filename, line_number_digits)
+      print_stats(change, line_number_digits)
       print_code(change.lines, line_number_digits, line_length)
     end)
   end
@@ -49,7 +50,14 @@ defmodule Covershow.Printers.TerminalPrinter do
   defp print_filename(filename, line_number_digits) do
     arrows = get_chars(line_number_digits, ">")
 
-    "\n\n#{@filename}#{arrows} #{filename}#{@reset}\n\n"
+    "\n\n#{@filename}#{arrows} #{filename}#{@reset}\n"
+    |> IO.write()
+  end
+
+  defp print_stats(change, line_number_digits) do
+    spaces = get_chars(line_number_digits, " ")
+
+    "#{spaces} lines added: #{change.lines_added}    covered: #{change.lines_covered}    missed: #{change.lines_missed}\n\n"
     |> IO.write()
   end
 
