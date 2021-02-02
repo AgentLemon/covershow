@@ -3,6 +3,6 @@ defmodule CovershowTest do
   doctest Covershow
 
   test "greets the world" do
-    assert Covershow.hello() == :world
+    assert Covershow.foo() == :ok
   end
 end
