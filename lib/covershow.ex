@@ -1,14 +1,17 @@
 defmodule Covershow do
   alias Covershow.Printers.TerminalPrinter
 
-  def foo do
+  def foo(commit) do
+    {raw_diff, 0} = System.cmd("git", ["diff", commit])
+
     diff =
-      "./diff"
-      |> File.stream!()
+      raw_diff
+      |> String.split("\n")
       |> Covershow.GitParser.parse()
+      |> IO.inspect()
 
     coverage =
-      "./excoveralls.json"
+      "./cover/excoveralls.json"
       |> File.read!()
       |> String.replace("\n", "\\n")
       |> Jason.decode!()
@@ -27,6 +30,12 @@ defmodule Covershow do
     end)
     |> Enum.reverse()
     |> TerminalPrinter.print()
+  end
+
+  def foobar do
+    a = "ololo"
+    b = a <> "lolo"
+    nil
   end
 
   defp assign_coverage(lines, coverage_record) do
