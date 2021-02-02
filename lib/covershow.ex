@@ -8,7 +8,6 @@ defmodule Covershow do
       raw_diff
       |> String.split("\n")
       |> Covershow.GitParser.parse()
-      |> IO.inspect()
 
     coverage =
       "./cover/excoveralls.json"

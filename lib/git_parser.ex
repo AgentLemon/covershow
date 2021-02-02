@@ -41,7 +41,10 @@ defmodule Covershow.GitParser do
         end
       end)
 
-    result
+    {cursor, rest} = get_cursor(result)
+
+    cursor
+    |> finish_change(rest)
     |> Enum.reverse()
   end
 
