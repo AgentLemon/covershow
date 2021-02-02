@@ -1,10 +1,11 @@
 defmodule Covershow do
+  alias Covershow.Printers.TerminalPrinter
+
   def foo do
     diff =
       "./diff"
       |> File.stream!()
-      |> GitParser.parse()
-      |> IO.inspect()
+      |> Covershow.GitParser.parse()
 
     coverage =
       "./excoveralls.json"
@@ -12,39 +13,30 @@ defmodule Covershow do
       |> String.replace("\n", "\\n")
       |> Jason.decode!()
       |> Map.get("source_files", [])
-      |> Enum.map(fn item ->
-        source = item["source"] |> String.split("\n")
-        Map.put(item, "source", source)
-      end)
       |> Enum.group_by(fn item -> item["name"] end)
 
     diff
-    |> Enum.each(fn change ->
-      filename = change |> Map.get(:new_filename, nil)
-      start_line = change |> Map.get(:line_num, 1)
-      amount = change |> Map.get(:amount, 0)
-      end_line = start_line + amount
+    |> Enum.reduce([], fn change, acc ->
+      with [coverage_record] <- coverage[change.new_filename] do
+        new_lines = change.lines |> assign_coverage(coverage_record)
+        new_change = change |> Map.put(:lines, new_lines)
+        [new_change | acc]
+      else
+        _any -> acc
+      end
+    end)
+    |> Enum.reverse()
+    |> TerminalPrinter.print()
+  end
 
-      with false <- is_nil(filename),
-           [coverage_record] <- coverage[filename] do
-        IO.puts("\n#{filename}\n")
-
-        (start_line - 1..end_line)
-        |> Enum.each(fn i ->
-          cov_value = coverage_record |> Map.get("coverage", []) |> Enum.at(i)
-          code_line = coverage_record |> Map.get("source", []) |> Enum.at(i)
-
-          cov_meaning =
-            case cov_value do
-              nil -> " "
-              0 -> "-"
-              _any -> "+"
-            end
-
-          "#{cov_meaning} #{code_line}" |> IO.puts()
-        end)
-
-        IO.puts("\n")
+  defp assign_coverage(lines, coverage_record) do
+    lines
+    |> Enum.map(fn line ->
+      if line.kind == :remove do
+        line
+      else
+        coverage = coverage_record |> Map.get("coverage", []) |> Enum.at(line.new_number - 1)
+        line |> Map.put(:coverage, coverage)
       end
     end)
   end
