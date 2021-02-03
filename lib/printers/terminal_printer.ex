@@ -11,39 +11,51 @@ defmodule Covershow.Printers.TerminalPrinter do
   @uncovered ANSI.color_background(5, 4, 4)
   @covered ANSI.color_background(4, 5, 4)
   @unchanged ANSI.color(246)
-  @uncovered_line_number "#{@uncovered}#{ANSI.color(232)}"
-  @covered_line_number "#{@covered}#{ANSI.color(232)}"
+  @uncovered_line_number "#{ANSI.color_background(4, 3, 3)}#{ANSI.color(232)}"
+  @covered_line_number "#{ANSI.color_background(3, 4, 3)}#{ANSI.color(232)}"
+  @separator ANSI.color(246)
   @summary ANSI.bright()
 
-  def print(change_list) do
-    line_number_digits = get_line_number_max_digits(change_list)
-    line_length = get_line_max_length(change_list)
+  def print(files) do
+    line_number_digits = get_line_number_max_digits(files)
+    line_length = get_line_max_length(files)
 
-    change_list
-    |> Enum.each(fn change ->
-      print_filename(change.new_filename, line_number_digits)
-      print_stats(change, line_number_digits)
-      print_code(change.lines, line_number_digits, line_length)
+    files
+    |> Enum.each(fn file ->
+      print_filename(file.new_filename, line_number_digits)
+      print_stats(file, line_number_digits)
+
+      file.blocks
+      |> Enum.each(fn block ->
+        print_code(block.lines, line_number_digits, line_length)
+        "\n\n" |> IO.write()
+      end)
     end)
 
-    print_summary(change_list)
+    print_summary(files, line_number_digits, line_length)
   end
 
-  defp get_line_max_length(change_list) do
-    change_list
-    |> Enum.flat_map(fn change ->
-      change.lines
-      |> Enum.map(&String.length(&1.value))
+  defp get_line_max_length(files) do
+    files
+    |> Enum.flat_map(fn file ->
+      file.blocks
+      |> Enum.flat_map(fn change ->
+        change.lines
+        |> Enum.map(&String.length(&1.value))
+      end)
     end)
     |> Enum.max()
   end
 
-  defp get_line_number_max_digits(change_list) do
-    change_list
-    |> Enum.flat_map(fn change ->
-      change.lines
-      |> Enum.map(& &1.new_number)
-      |> Enum.reject(&is_nil/1)
+  defp get_line_number_max_digits(files) do
+    files
+    |> Enum.flat_map(fn file ->
+      file.blocks
+      |> Enum.flat_map(fn block ->
+        block.lines
+        |> Enum.map(& &1.new_number)
+        |> Enum.reject(&is_nil/1)
+      end)
     end)
     |> Enum.max()
     |> Integer.digits()
@@ -53,15 +65,15 @@ defmodule Covershow.Printers.TerminalPrinter do
   defp print_filename(filename, line_number_digits) do
     arrows = get_chars(line_number_digits, ">")
 
-    "\n\n#{@filename}#{arrows} #{filename}#{@reset}\n"
+    "\n#{@filename}#{arrows} #{filename}#{@reset}\n"
     |> IO.write()
   end
 
   defp print_stats(change, line_number_digits) do
     spaces = get_chars(line_number_digits, " ")
 
-    "#{spaces} lines added: #{change.lines_added}    covered: #{change.lines_covered}    missed: #{
-      change.lines_missed
+    "#{spaces} lines added: #{change.added}    covered: #{change.covered}    missed: #{
+      change.missed
     }\n\n"
     |> IO.write()
   end
@@ -95,22 +107,28 @@ defmodule Covershow.Printers.TerminalPrinter do
     |> IO.write()
   end
 
-  defp print_summary(change_list) do
+  defp print_summary(files, line_number_digits, line_length) do
     {added, covered, missed} =
-      change_list
+      files
       |> Enum.reduce({0, 0, 0}, fn change, {added, covered, missed} ->
-        {added + change.lines_added, covered + change.lines_covered, missed + change.lines_missed}
+        {added + change.added, covered + change.covered, missed + change.missed}
       end)
 
-    coverage = (100 * covered / (covered + missed)) |> Float.round(1)
+    coverage =
+      if covered + missed > 0 do
+        (100 * covered / (covered + missed)) |> Float.round(1)
+      end
 
-    "\n\n---------------------------------------------------------------------------------\n\n"
+    separator = get_chars(line_number_digits + line_length + 1, "-")
+    gap = get_chars(line_number_digits, " ")
+
+    "#{@separator}#{separator}#{@reset}\n\n"
     |> IO.write()
 
-    "    #{@summary}lines added:   #{added}#{@reset}\n" |> IO.write()
-    "    #{@summary}lines covered: #{covered}#{@reset}\n" |> IO.write()
-    "    #{@summary}lines missed:  #{missed}#{@reset}\n" |> IO.write()
-    "    #{@summary}coverage:      #{coverage}%#{@reset}\n" |> IO.write()
+    "#{gap} #{@summary}lines added:   #{added}#{@reset}\n" |> IO.write()
+    "#{gap} #{@summary}lines covered: #{covered}#{@reset}\n" |> IO.write()
+    "#{gap} #{@summary}lines missed:  #{missed}#{@reset}\n" |> IO.write()
+    "#{gap} #{@summary}diff coverage: #{coverage}%#{@reset}\n" |> IO.write()
     "\n\n" |> IO.write()
   end
 

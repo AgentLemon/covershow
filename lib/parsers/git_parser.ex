@@ -1,72 +1,78 @@
-defmodule Covershow.GitParser do
+defmodule Covershow.Parsers.GitParser do
   @moduledoc """
   Functions to parse git diff
   """
 
-  alias Covershow.{Change, CodeLine}
+  alias Covershow.Data.{File, Block, Line}
 
   def parse(lines) do
-    result =
+    file_list =
       lines
       |> Enum.reduce([], fn line, acc ->
-        {cursor, rest} = get_cursor(acc)
+        {file, rest} = shift(acc)
 
         case parse_line(line) do
           :diff ->
-            changes = finish_change(cursor, rest)
-            [%Change{} | changes]
-
-          {:line_num, old_number, old_amount, new_number, new_amount} ->
-            cursor =
-              cursor
-              |> Map.merge(%{
-                old_start_line: old_number,
-                old_amount: old_amount,
-                new_start_line: new_number,
-                new_amount: new_amount
-              })
-
-            [cursor | rest]
+            [%File{} | acc]
 
           {:filename, kind, filename} ->
-            cursor = Map.put(cursor, kind, filename)
-            [cursor | rest]
+            file = Map.put(file, kind, filename)
+            [file | rest]
+
+          {:line_num, old_number, old_amount, new_number, new_amount} ->
+            block = %Block{
+              old_start_line: old_number,
+              old_amount: old_amount,
+              new_start_line: new_number,
+              new_amount: new_amount
+            }
+
+            file = Map.put(file, :blocks, [block | file.blocks])
+            [file | rest]
 
           {:code_line, kind, line} ->
-            cursor = put_line(cursor, kind, line)
-            [cursor | rest]
+            {block, rest_blocks} = shift(file.blocks)
+            block = put_line(block, kind, line)
+            file = Map.put(file, :blocks, [block | rest_blocks])
+            [file | rest]
 
           nil ->
             acc
         end
       end)
 
-    {cursor, rest} = get_cursor(result)
+    finish(file_list)
+  end
 
-    cursor
-    |> finish_change(rest)
+  defp put_line(block, kind, line) do
+    code_line = %Line{value: line, kind: kind}
+    new_lines = [code_line | block.lines]
+    Map.put(block, :lines, new_lines)
+  end
+
+  defp finish(file_list) do
+    file_list
+    |> Enum.map(fn file ->
+      blocks = finish_blocks(file.blocks)
+      Map.put(file, :blocks, blocks)
+    end)
     |> Enum.reverse()
   end
 
-  defp put_line(cursor, kind, line) do
-    code_line = %CodeLine{value: line, kind: kind}
-    new_lines = [code_line | cursor.lines]
-    Map.put(cursor, :lines, new_lines)
+  defp finish_blocks(blocks) do
+    blocks
+    |> Enum.map(fn block ->
+      assign_line_numbers(block)
+    end)
+    |> Enum.reverse()
   end
 
-  defp finish_change(nil, rest), do: rest
+  defp assign_line_numbers(block) do
+    old_end = block.old_start_line + block.old_amount - 1
+    new_end = block.new_start_line + block.new_amount - 1
 
-  defp finish_change(cursor, rest) do
-    new_cursor = cursor |> assign_line_numbers()
-    [new_cursor | rest]
-  end
-
-  defp assign_line_numbers(cursor) do
-    old_end = cursor.old_start_line + cursor.old_amount - 1
-    new_end = cursor.new_start_line + cursor.new_amount - 1
-
-    {new_lines, _, _} =
-      cursor.lines
+    {lines, _, _} =
+      block.lines
       |> Enum.reduce(
         {[], old_end, new_end},
         fn line, {lines, old_counter, new_counter} ->
@@ -86,11 +92,11 @@ defmodule Covershow.GitParser do
         end
       )
 
-    cursor |> Map.put(:lines, new_lines)
+    Map.put(block, :lines, lines)
   end
 
-  defp get_cursor([]), do: {nil, []}
-  defp get_cursor([cursor | rest]), do: {cursor, rest}
+  defp shift([]), do: {nil, []}
+  defp shift([cursor | rest]), do: {cursor, rest}
 
   defp parse_line(line) do
     check_diff(line) ||
@@ -107,7 +113,7 @@ defmodule Covershow.GitParser do
   end
 
   defp check_filename(line) do
-    case Regex.scan(~r/^(---|\+\+\+) (a|b)\/(.*)$/, line) do
+    case Regex.scan(~r/^(---|\+\+\+) (a|b)?\/(.*)$/, line) do
       [] -> nil
       [[_, "---", _, filename]] -> {:filename, :old_filename, filename}
       [[_, "+++", _, filename]] -> {:filename, :new_filename, filename}

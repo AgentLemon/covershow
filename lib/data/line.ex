@@ -1,4 +1,4 @@
-defmodule Covershow.CodeLine do
+defmodule Covershow.Data.Line do
   @moduledoc """
   Data object for a line of code
   """

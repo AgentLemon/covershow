@@ -2,49 +2,51 @@ defmodule Covershow do
   alias Covershow.Printers.TerminalPrinter
 
   def foo(commit) do
-    {raw_diff, 0} = System.cmd("git", ["diff", commit])
-
-    diff =
-      raw_diff
-      |> String.split("\n")
-      |> Covershow.GitParser.parse()
-
-    coverage =
-      "./cover/excoveralls.json"
-      |> File.read!()
-      |> String.replace("\n", "\\n")
-      |> Jason.decode!()
-      |> Map.get("source_files", [])
-      |> Enum.group_by(fn item -> item["name"] end)
+    diff = get_diff(commit)
+    coverage = get_coverage()
 
     diff
-    |> Enum.reduce([], fn change, acc ->
-      with [coverage_record] <- coverage[change.new_filename] do
-        new_lines = change.lines |> assign_coverage(coverage_record)
-        {added, covered, missed} = get_stats(new_lines)
+    |> Enum.map(fn file ->
+      with [coverage_record] <- coverage[file.new_filename] do
+        blocks =
+          file.blocks
+          |> Enum.map(fn block ->
+            new_lines = block.lines |> assign_coverage(coverage_record)
+            {added, covered, missed} = get_stats(new_lines)
 
-        new_change =
-          change
-          |> Map.merge(%{
-            lines: new_lines,
-            lines_added: added,
-            lines_covered: covered,
-            lines_missed: missed
-          })
+            block
+            |> Map.merge(%{
+              lines: new_lines,
+              added: added,
+              covered: covered,
+              missed: missed
+            })
+          end)
 
-        [new_change | acc]
-      else
-        _any -> acc
+        {added, covered, missed} = summarise_stats(blocks)
+
+        file |> Map.merge(%{blocks: blocks, added: added, covered: covered, missed: missed})
       end
     end)
-    |> Enum.reverse()
+    |> Enum.reject(&is_nil/1)
     |> TerminalPrinter.print()
   end
 
-  def foobar do
-    a = "ololo"
-    b = a <> "lolo"
-    nil
+  defp get_diff(commit) do
+    {raw_diff, 0} = System.cmd("git", ["diff", commit])
+
+    raw_diff
+    |> String.split("\n")
+    |> Covershow.Parsers.GitParser.parse()
+  end
+
+  defp get_coverage do
+    "./cover/excoveralls.json"
+    |> File.read!()
+    |> String.replace("\n", "\\n")
+    |> Jason.decode!()
+    |> Map.get("source_files", [])
+    |> Enum.group_by(fn item -> item["name"] end)
   end
 
   defp assign_coverage(lines, coverage_record) do
@@ -54,7 +56,7 @@ defmodule Covershow do
         line
       else
         coverage = coverage_record |> Map.get("coverage", []) |> Enum.at(line.new_number - 1)
-        line |> Map.put(:coverage, coverage)
+        Map.put(line, :coverage, coverage)
       end
     end)
   end
@@ -62,18 +64,22 @@ defmodule Covershow do
   defp get_stats(lines) do
     lines
     |> Enum.reduce({0, 0, 0}, fn line, {added, covered, missed} ->
-      new_added =
-        if line.kind == :add do
-          added + 1
-        else
-          added
+      if line.kind == :add do
+        case line.coverage do
+          nil -> {added + 1, covered, missed}
+          0 -> {added + 1, covered, missed + 1}
+          _ -> {added + 1, covered + 1, missed}
         end
-
-      case line.coverage do
-        nil -> {new_added, covered, missed}
-        0 -> {new_added, covered, missed + 1}
-        _ -> {new_added, covered + 1, missed}
+      else
+        {added, covered, missed}
       end
+    end)
+  end
+
+  defp summarise_stats(blocks) do
+    blocks
+    |> Enum.reduce({0, 0, 0}, fn block, {added, covered, missed} ->
+      {added + block.added, covered + block.covered, missed + block.missed}
     end)
   end
 end
