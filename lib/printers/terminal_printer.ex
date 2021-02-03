@@ -44,7 +44,7 @@ defmodule Covershow.Printers.TerminalPrinter do
         |> Enum.map(&String.length(&1.value))
       end)
     end)
-    |> Enum.max()
+    |> Enum.max(fn -> 0 end)
   end
 
   defp get_line_number_max_digits(files) do
@@ -57,7 +57,7 @@ defmodule Covershow.Printers.TerminalPrinter do
         |> Enum.reject(&is_nil/1)
       end)
     end)
-    |> Enum.max()
+    |> Enum.max(fn -> 0 end)
     |> Integer.digits()
     |> Enum.count()
   end
