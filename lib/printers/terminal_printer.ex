@@ -13,6 +13,7 @@ defmodule Covershow.Printers.TerminalPrinter do
   @unchanged ANSI.color(246)
   @uncovered_line_number "#{@uncovered}#{ANSI.color(232)}"
   @covered_line_number "#{@covered}#{ANSI.color(232)}"
+  @summary ANSI.bright()
 
   def print(change_list) do
     line_number_digits = get_line_number_max_digits(change_list)
@@ -24,6 +25,8 @@ defmodule Covershow.Printers.TerminalPrinter do
       print_stats(change, line_number_digits)
       print_code(change.lines, line_number_digits, line_length)
     end)
+
+    print_summary(change_list)
   end
 
   defp get_line_max_length(change_list) do
@@ -57,7 +60,9 @@ defmodule Covershow.Printers.TerminalPrinter do
   defp print_stats(change, line_number_digits) do
     spaces = get_chars(line_number_digits, " ")
 
-    "#{spaces} lines added: #{change.lines_added}    covered: #{change.lines_covered}    missed: #{change.lines_missed}\n\n"
+    "#{spaces} lines added: #{change.lines_added}    covered: #{change.lines_covered}    missed: #{
+      change.lines_missed
+    }\n\n"
     |> IO.write()
   end
 
@@ -88,6 +93,25 @@ defmodule Covershow.Printers.TerminalPrinter do
 
     "#{num_color}#{number}#{@reset}#{color} #{code_line}#{@reset}\n"
     |> IO.write()
+  end
+
+  defp print_summary(change_list) do
+    {added, covered, missed} =
+      change_list
+      |> Enum.reduce({0, 0, 0}, fn change, {added, covered, missed} ->
+        {added + change.lines_added, covered + change.lines_covered, missed + change.lines_missed}
+      end)
+
+    coverage = (100 * covered / (covered + missed)) |> Float.round(1)
+
+    "\n\n---------------------------------------------------------------------------------\n\n"
+    |> IO.write()
+
+    "    #{@summary}lines added:   #{added}#{@reset}\n" |> IO.write()
+    "    #{@summary}lines covered: #{covered}#{@reset}\n" |> IO.write()
+    "    #{@summary}lines missed:  #{missed}#{@reset}\n" |> IO.write()
+    "    #{@summary}coverage:      #{coverage}%#{@reset}\n" |> IO.write()
+    "\n\n" |> IO.write()
   end
 
   defp get_number(number, digits) do
