@@ -2,30 +2,15 @@ defmodule Covershow do
   alias Covershow.Parsers.GitParser
   alias Covershow.Printers.TerminalPrinter
 
-  def foo(commit) do
+  def print_coverage(commit) do
     diff = get_diff(commit)
     coverage = get_coverage()
 
     diff
     |> Enum.map(fn file ->
       with [coverage_record] <- coverage[file.new_filename] do
-        blocks =
-          file.blocks
-          |> Enum.map(fn block ->
-            new_lines = block.lines |> assign_coverage(coverage_record)
-            {added, covered, missed} = get_stats(new_lines)
-
-            block
-            |> Map.merge(%{
-              lines: new_lines,
-              added: added,
-              covered: covered,
-              missed: missed
-            })
-          end)
-
+        blocks = process_blocks(file.blocks, coverage_record)
         {added, covered, missed} = summarise_stats(blocks)
-
         file |> Map.merge(%{blocks: blocks, added: added, covered: covered, missed: missed})
       end
     end)
@@ -59,6 +44,22 @@ defmodule Covershow do
         coverage = coverage_record |> Map.get("coverage", []) |> Enum.at(line.new_number - 1)
         Map.put(line, :coverage, coverage)
       end
+    end)
+  end
+
+  defp process_blocks(blocks, coverage_record) do
+    blocks
+    |> Enum.map(fn block ->
+      new_lines = block.lines |> assign_coverage(coverage_record)
+      {added, covered, missed} = get_stats(new_lines)
+
+      block
+      |> Map.merge(%{
+        lines: new_lines,
+        added: added,
+        covered: covered,
+        missed: missed
+      })
     end)
   end
 

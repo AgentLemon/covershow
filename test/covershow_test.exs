@@ -12,7 +12,7 @@ defmodule CovershowTest do
       %{diff: diff, coverage: coverage}
     end
 
-    test "greets the world", %{diff: diff, coverage: coverage} do
+    test "shows coverage", %{diff: diff, coverage: coverage} do
       with_mock(System, cmd: fn _, _ -> {diff, 0} end) do
         with_mock(File, read!: fn _ -> coverage end) do
           log =
@@ -31,6 +31,15 @@ defmodule CovershowTest do
           assert log =~ ~r/#{uncovered_style}.*uncovered/
         end
       end
+    end
+
+    test "shows help when no commit provided" do
+      log =
+        capture_io(fn ->
+          Mix.Tasks.Covershow.run([])
+        end)
+
+      assert log =~ ~r/mix covershow <commit_id | branch_name>/
     end
   end
 end
