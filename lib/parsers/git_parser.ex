@@ -3,7 +3,7 @@ defmodule Covershow.Parsers.GitParser do
   Functions to parse git diff
   """
 
-  alias Covershow.Data.{File, Block, Line}
+  alias Covershow.Data.{Block, File, Line}
 
   def parse(lines) do
     file_list =

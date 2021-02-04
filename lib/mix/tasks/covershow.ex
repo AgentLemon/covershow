@@ -1,4 +1,8 @@
 defmodule Mix.Tasks.Covershow do
+  @moduledoc """
+  Task to run covershow
+  """
+
   use Mix.Task
 
   def run([commit]) do

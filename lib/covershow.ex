@@ -1,4 +1,8 @@
 defmodule Covershow do
+  @moduledoc """
+  Logic to get all data and send it to printer
+  """
+
   alias Covershow.Parsers.GitParser
   alias Covershow.Printers.TerminalPrinter
 

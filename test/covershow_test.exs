@@ -2,6 +2,7 @@ defmodule CovershowTest do
   use ExUnit.Case
   import ExUnit.CaptureIO
   import Mock
+  alias Mix.Tasks.Covershow
   doctest Covershow
 
   describe "does it's job" do
@@ -17,7 +18,7 @@ defmodule CovershowTest do
         with_mock(File, read!: fn _ -> coverage end) do
           log =
             capture_io(fn ->
-              Mix.Tasks.Covershow.run(["HEAD"])
+              Covershow.run(["HEAD"])
             end)
 
           covered_style = IO.ANSI.color_background(4, 5, 4) |> String.replace("[", "\\[")
@@ -36,7 +37,7 @@ defmodule CovershowTest do
     test "shows help when no commit provided" do
       log =
         capture_io(fn ->
-          Mix.Tasks.Covershow.run([])
+          Covershow.run([])
         end)
 
       assert log =~ ~r/mix covershow <commit_id | branch_name>/
