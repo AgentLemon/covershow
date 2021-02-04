@@ -1,3 +1,5 @@
+[![Codeship Status for AgentLemon/covershow](https://app.codeship.com/projects/a003275f-d986-420d-9b2c-4e8a5c550c0b/status?branch=master)](https://app.codeship.com/projects/425980)
+
 # Covershow
 
 Provides diff coverage changes by excoveralls.json and commit id to compare to
