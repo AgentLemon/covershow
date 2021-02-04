@@ -1,4 +1,5 @@
 defmodule Covershow do
+  alias Covershow.Parsers.GitParser
   alias Covershow.Printers.TerminalPrinter
 
   def foo(commit) do
@@ -37,7 +38,7 @@ defmodule Covershow do
 
     raw_diff
     |> String.split("\n")
-    |> Covershow.Parsers.GitParser.parse()
+    |> GitParser.parse()
   end
 
   defp get_coverage do
