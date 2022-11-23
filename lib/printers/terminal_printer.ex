@@ -8,8 +8,8 @@ defmodule Covershow.Printers.TerminalPrinter do
   @reset ANSI.reset()
   @filename ANSI.bright()
   @line_number "#{ANSI.color_background(254)}#{ANSI.color(246)}"
-  @uncovered ANSI.color_background(5, 4, 4)
-  @covered ANSI.color_background(4, 5, 4)
+  @uncovered "#{ANSI.color_background(5, 4, 4)}#{ANSI.color(232)}"
+  @covered "#{ANSI.color_background(4, 5, 4)}#{ANSI.color(232)}"
   @unchanged ANSI.color(246)
   @uncovered_line_number "#{ANSI.color_background(4, 3, 3)}#{ANSI.color(232)}"
   @covered_line_number "#{ANSI.color_background(3, 4, 3)}#{ANSI.color(232)}"
